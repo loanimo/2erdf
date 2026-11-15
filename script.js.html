@@ -1,0 +1,333 @@
+let balance = 15500;
+let currentCurrency = 'BDT';
+let sessionTotalWon = 0;
+let currentTier = '';
+let registeredCount = 50820;
+
+let tempPkgName = '';
+let tempPriceBDT = 0;
+let tempCardCount = 0;
+let tempTier = '';
+
+function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Web Audio API Sound Effects
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playScratchSound() {
+    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+}
+
+function playWinSound() {
+    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+    const now = audioCtx.currentTime;
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+        gain.gain.setValueAtTime(0.2, now + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + i * 0.1);
+        osc.stop(now + i * 0.1 + 0.2);
+    });
+}
+
+// Countdown Timer
+let totalSeconds = 12 * 3600 + 34 * 60 + 50;
+function updateCountdown() {
+    if (totalSeconds > 0) totalSeconds--;
+    let h = Math.floor(totalSeconds / 3600);
+    let m = Math.floor((totalSeconds % 3600) / 60);
+    let s = totalSeconds % 60;
+    const elH = document.getElementById('timerHours');
+    const elM = document.getElementById('timerMins');
+    const elS = document.getElementById('timerSecs');
+    if (elH) elH.innerText = String(h).padStart(2, '0');
+    if (elM) elM.innerText = String(m).padStart(2, '0');
+    if (elS) elS.innerText = String(s).padStart(2, '0');
+}
+setInterval(updateCountdown, 1000);
+
+// Live Counters
+function updateLiveCounters() {
+    const minUsers = 1500;
+    const maxUsers = 2050;
+    const randomUsers = Math.floor(Math.random() * (maxUsers - minUsers + 1)) + minUsers;
+    const onlineEl = document.getElementById('liveOnlineCount');
+    if (onlineEl) { onlineEl.innerText = randomUsers.toLocaleString() + ' জন'; }
+
+    if (Math.random() > 0.4) {
+        registeredCount += Math.floor(Math.random() * 3) + 1;
+        const regEl = document.getElementById('registeredMembersCount');
+        if (regEl) { regEl.innerText = registeredCount.toLocaleString() + '+'; }
+    }
+}
+setInterval(updateLiveCounters, 5000);
+
+// Toast Notifications
+const recentWinners = [
+    { name: "তানভীর আহমেদ", text: "১ম প্যাকেজ থেকে ৳১২,২৩,০০০ জিতেছেন! (ডিউ ফি: ৳১২,৯৯৯)" },
+    { name: "আহমেদ আল-সুলাইদী", text: "ওমান থেকে প্লাটিনাম প্যাক জিতেছে ৳৫,০০,০০,০০০!" },
+    { name: "রিয়াদ হাসান", text: "সৌদি আরব থেকে গোল্ড প্যাক জিতেছে ৳২৫,০০,০০০!" }
+];
+
+function showLiveToast() {
+    const winner = recentWinners[Math.floor(Math.random() * recentWinners.length)];
+    document.getElementById('toastMessage').innerText = `${winner.name} ${winner.text}`;
+    const toast = document.getElementById('toastContainer');
+    toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+    }, 4000);
+}
+setInterval(showLiveToast, 9000);
+
+const rates = {
+    'BDT': { rate: 1, symbol: '৳' },
+    'USD': { rate: 0.0083, symbol: '$' },
+    'SAR': { rate: 0.031, symbol: 'SAR ' },
+    'AED': { rate: 0.030, symbol: 'AED ' },
+    'OMR': { rate: 0.0032, symbol: 'OMR ' },
+    'QAR': { rate: 0.030, symbol: 'QAR ' },
+    'MYR': { rate: 0.039, symbol: 'RM ' },
+    'EUR': { rate: 0.0076, symbol: '€' },
+    'GBP': { rate: 0.0065, symbol: '£' }
+};
+
+function changeCurrency() {
+    currentCurrency = document.getElementById('currencySelector').value;
+    const config = rates[currentCurrency];
+    const convertedBalance = Math.round(balance * config.rate);
+    document.getElementById('userBalance').innerText = config.symbol + convertedBalance.toLocaleString();
+    document.getElementById('dashBalance').innerText = config.symbol + convertedBalance.toLocaleString();
+
+    document.querySelectorAll('.price-tag').forEach(el => {
+        const bdtVal = parseInt(el.getAttribute('data-bdt'));
+        const convertedVal = Math.round(bdtVal * config.rate);
+        el.innerText = config.symbol + convertedVal.toLocaleString();
+    });
+}
+
+function openPurchaseModal(packageName, priceBDT, cardCount, tier) {
+    tempPkgName = packageName;
+    tempPriceBDT = priceBDT;
+    tempCardCount = cardCount;
+    tempTier = tier;
+    document.getElementById('purchaseModal').classList.remove('hidden');
+}
+
+function closePurchaseModal() {
+    document.getElementById('purchaseModal').classList.add('hidden');
+}
+
+function confirmAndStartGame() {
+    const name = document.getElementById('buyerName').value;
+    const phone = document.getElementById('buyerPhone').value;
+    const imgUrl = document.getElementById('buyerImage').value;
+
+    if (!name || !phone) {
+        alert('দয়া করে আপনার নাম এবং মোবাইল নম্বর দিন!');
+        return;
+    }
+
+    document.getElementById('dashUserName').innerText = name;
+    document.getElementById('dashUserPhone').innerText = phone;
+    document.getElementById('certUserName').innerText = name;
+    document.getElementById('certUserPhone').innerText = phone;
+
+    if (imgUrl) {
+        document.getElementById('dashUserImg').src = imgUrl;
+        document.getElementById('certUserImage').src = imgUrl;
+    }
+
+    closePurchaseModal();
+    selectPackage(tempPkgName, tempPriceBDT, tempCardCount, tempTier);
+}
+
+function selectPackage(packageName, priceBDT, cardCount, tier) {
+    const config = rates[currentCurrency];
+    const convertedPrice = Math.round(priceBDT * config.rate);
+    sessionTotalWon = 0;
+    currentTier = tier;
+
+    document.getElementById('activePkgName').innerText = `${packageName} (${cardCount}টি কার্ড)`;
+    document.getElementById('activePkgPrice').innerText = config.symbol + convertedPrice.toLocaleString();
+
+    let gridHtml = '';
+    for (let i = 1; i <= cardCount; i++) {
+        let prizeText = "";
+        let isWinner = Math.random() > 0.4;
+
+        if (!isWinner) {
+            prizeText = "পরের বার আবার চেষ্টা করুন";
+        } else {
+            if (tier === 'starter') {
+                let starterPrizes = [123000, 200000, 300000, 600000];
+                prizeText = "৳" + starterPrizes[Math.floor(Math.random() * starterPrizes.length)].toLocaleString();
+            } else if (tier === 'bronze') {
+                let prizes = [250000, 500000, 800000, 1500000];
+                prizeText = "৳" + prizes[Math.floor(Math.random() * prizes.length)].toLocaleString();
+            } else if (tier === 'silver') {
+                let prizes = [500000, 1000000, 2000000, 3500000];
+                prizeText = "৳" + prizes[Math.floor(Math.random() * prizes.length)].toLocaleString();
+            } else if (tier === 'gold') {
+                let prizes = [1000000, 2500000, 5000000, 10000000];
+                prizeText = "৳" + prizes[Math.floor(Math.random() * prizes.length)].toLocaleString();
+            } else if (tier === 'platinum') {
+                let prizes = [2000000, 5000000, 10000000, 25000000, 50000000];
+                prizeText = "৳" + prizes[Math.floor(Math.random() * prizes.length)].toLocaleString();
+            }
+        }
+
+        gridHtml += `<div onclick="revealCard(this, '${prizeText}')" class="bg-slate-900 border border-slate-700 hover:border-amber-400 h-24 rounded-xl flex flex-col items-center justify-center p-2 text-center cursor-pointer transition transform hover:scale-105 shadow">
+            <span class="text-[11px] text-amber-400 font-bold mb-1">কার্ড #${i}</span>
+            <span class="text-xs text-slate-400 card-content">স্ক্র্যাচ করুন</span>
+        </div>`;
+    }
+
+    document.getElementById('packageCardsGrid').innerHTML = gridHtml;
+    document.getElementById('mainContainer').classList.add('hidden');
+    document.getElementById('checkoutView').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function revealCard(cardEl, prize) {
+    playScratchSound();
+    const contentSpan = cardEl.querySelector('.card-content');
+    cardEl.classList.remove('bg-slate-900');
+    
+    if (prize.includes("পরের বার")) {
+        cardEl.classList.add('bg-rose-950/60', 'border-rose-500');
+        contentSpan.className = "text-[11px] text-rose-300 font-bold card-content";
+        contentSpan.innerText = prize;
+    } else {
+        playWinSound();
+        cardEl.classList.add('bg-emerald-950/60', 'border-emerald-500');
+        contentSpan.className = "text-[11px] text-emerald-300 font-bold card-content";
+        contentSpan.innerText = prize;
+
+        let cleanNum = parseInt(prize.replace(/[৳,]/g, ''));
+        if (!isNaN(cleanNum)) {
+            sessionTotalWon += cleanNum;
+            balance += cleanNum;
+            changeCurrency();
+        }
+    }
+}
+
+function showMainView() {
+    document.getElementById('checkoutView').classList.add('hidden');
+    document.getElementById('mainContainer').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function openFinalCertificate() {
+    document.getElementById('certPrizeAmount').innerText = '৳' + sessionTotalWon.toLocaleString();
+    let dueFee = (currentTier === 'starter') ? 12999 : 0;
+
+    if (dueFee > 0) {
+        document.getElementById('certFeeNotice').innerText = `⚠️ উইনিং সার্টিফিকেট অনুযায়ী ডিউ ফি: ৳${dueFee.toLocaleString()} প্রযোজ্য।`;
+        document.getElementById('certFeeNotice').className = 'text-xs text-amber-400 font-bold';
+    } else {
+        document.getElementById('certFeeNotice').innerText = '✅ কোনো খরচ বা চার্জ নেই!';
+        document.getElementById('certFeeNotice').className = 'text-xs text-emerald-400 font-bold';
+    }
+    document.getElementById('certificateModal').classList.remove('hidden');
+}
+
+function closeCertificate() { document.getElementById('certificateModal').classList.add('hidden'); }
+
+function handleDeposit() {
+    const amt = parseInt(document.getElementById('depositAmount').value);
+    const trxId = document.getElementById('depositTrxId').value;
+    if (!amt || amt < 500 || !trxId) { alert('সঠিক পরিমাণ এবং ট্রানজেকশন আইডি দিন!'); return; }
+    balance += amt;
+    changeCurrency();
+    alert('ডিপোজিট সফলভাবে সাবমিট হয়েছে!');
+    document.getElementById('depositAmount').value = '';
+    document.getElementById('depositTrxId').value = '';
+}
+
+function handleWithdraw() {
+    const method = document.getElementById('withdrawMethod').value;
+    const amt = parseInt(document.getElementById('withdrawAmount').value);
+    const acc = document.getElementById('withdrawAccount').value;
+    const pin = document.getElementById('withdrawPin').value;
+
+    if (!acc || !amt || amt <= 0 || pin.length !== 4) {
+        alert('সঠিক অ্যাকাউন্ট নম্বর/ওয়ালেট, পরিমাণ এবং ৪-ডিজিটের পিন দিন!');
+        return;
+    }
+    if (amt > balance) { alert('পর্যাপ্ত ব্যালেন্স নেই!'); return; }
+
+    alert(`উইথড্র মাধ্যম (${method.toUpperCase()})-এ ৳${amt.toLocaleString()} উইথড্র রিকোয়েস্ট সফলভাবে সাবমিট হয়েছে!`);
+    balance -= amt;
+    changeCurrency();
+}
+
+function copyReferralLink() {
+    navigator.clipboard.writeText(document.getElementById("referralLink").value);
+    alert("রেফারেল লিংক কপি হয়েছে!");
+}
+
+// Signup validation with Confirm Password
+function handleSignUp() {
+    const name = document.getElementById('suName').value;
+    const phone = document.getElementById('suPhone').value;
+    const pass = document.getElementById('suPassword').value;
+    const confirmPass = document.getElementById('suConfirmPassword').value;
+
+    if (!name || !phone || !pass || !confirmPass) {
+        alert('দয়া করে সব ফিল্ড পূরণ করুন!');
+        return;
+    }
+    if (pass !== confirmPass) {
+        alert('পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড মিলছে না!');
+        return;
+    }
+    alert('গ্লোবাল অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+    closeSignUpModal();
+}
+
+function openUserDashboard() { document.getElementById('userDashboardModal').classList.remove('hidden'); }
+function closeUserDashboard() { document.getElementById('userDashboardModal').classList.add('hidden'); }
+function openChatModal() { document.getElementById('chatModal').classList.remove('hidden'); }
+function closeChatModal() { document.getElementById('chatModal').classList.add('hidden'); }
+function sendChatMessage() {
+    alert('মেসেজ পাঠানো হয়েছে!');
+    document.getElementById('chatInput').value = '';
+    closeChatModal();
+}
+
+function openSignUpModal() { document.getElementById('signUpModal').classList.remove('hidden'); }
+function closeSignUpModal() { document.getElementById('signUpModal').classList.add('hidden'); }
+function openSignInModal() { document.getElementById('signInModal').classList.remove('hidden'); }
+function closeSignInModal() { document.getElementById('signInModal').classList.add('hidden'); }
+function openAdminLoginModal() { document.getElementById('adminLoginModal').classList.remove('hidden'); }
+function closeAdminLoginModal() { document.getElementById('adminLoginModal').classList.add('hidden'); }
+function verifyAdminPassword() {
+    if (document.getElementById('adminPasswordInput').value === 'Mehedi12@#') {
+        closeAdminLoginModal();
+        document.getElementById('adminModal').classList.remove('hidden');
+    } else { alert('ভুল পাসওয়ার্ড!'); }
+}
+function closeAdminModal() { document.getElementById('adminModal').classList.add('hidden'); }
+function handleSignIn() { alert('লগইন সফল!'); closeSignInModal(); }
